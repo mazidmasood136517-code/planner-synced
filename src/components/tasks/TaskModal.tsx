@@ -85,7 +85,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           dueDate,
           dueTime: dueTime || null,
           recurring,
-          recurrenceRule: recurring ? recurrenceRule : null,
+          recurrenceRule: recurring ? recurrenceRule : 'none',
           estimatedMinutes: Number(estimatedMinutes) || null,
         });
       } else {
@@ -99,7 +99,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           dueTime: dueTime || null,
           completed: false,
           recurring,
-          recurrenceRule: recurring ? recurrenceRule : null,
+          recurrenceRule: recurring ? recurrenceRule : 'none',
           estimatedMinutes: Number(estimatedMinutes) || null,
         });
       }
