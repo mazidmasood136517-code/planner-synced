@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Friendships collection
+    match /friendships/{friendshipId} {
+      allow read, write: if true;
+    }
+
+    // Tasks collection
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+
+    // Daily Plans collection
+    match /dailyPlans/{planId} {
+      allow read, write: if true;
+    }
+
+    // Planner Items collection
+    match /plannerItems/{itemId} {
+      allow read, write: if true;
+    }
+
+    // Weekly Plans collection
+    match /weeklyPlans/{planId} {
+      allow read, write: if true;
+    }
+
+    // Weekly Goals collection
+    match /weeklyGoals/{goalId} {
+      allow read, write: if true;
+    }
+
+    // Daily Activity collection
+    match /dailyActivity/{activityId} {
+      allow read, write: if true;
+    }
+
+    // GitHub Connection and Activity
+    match /githubConnections/{connId} {
+      allow read, write: if true;
+    }
+
+    match /githubActivity/{actId} {
+      allow read, write: if true;
+    }
+
+    // LinkedIn Goals
+    match /linkedinGoals/{goalId} {
+      allow read, write: if true;
+    }
+
+    // Notifications
+    match /notifications/{notifId} {
+      allow read, write: if true;
+    }
+
+    // Nudges
+    match /nudges/{nudgeId} {
+      allow read, write: if true;
+    }
+
+    // Catch-all
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+

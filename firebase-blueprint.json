@@ -1,0 +1,167 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with accountability settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "timezone": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "bio": { "type": "string" },
+        "githubUsername": { "type": "string" },
+        "githubConnected": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "name", "username", "email"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "To-do task or sprint item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "dueDate": { "type": "string" },
+        "estimatedMinutes": { "type": "number" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "title"]
+    },
+    "DailyPlan": {
+      "title": "DailyPlan",
+      "description": "Daily morning schedule and intentions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "wakeUpTime": { "type": "string" },
+        "mainFocus": { "type": "string" },
+        "gratitude": { "type": "string" },
+        "notes": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "date"]
+    },
+    "PlannerItem": {
+      "title": "PlannerItem",
+      "description": "Time-block hourly item on daily timeline",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "date", "startTime", "title"]
+    },
+    "WeeklyGoal": {
+      "title": "WeeklyGoal",
+      "description": "Target weekly milestones",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "weekStart": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "targetValue": { "type": "number" },
+        "currentValue": { "type": "number" },
+        "unit": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "weekStart", "title"]
+    },
+    "DailyActivity": {
+      "title": "DailyActivity",
+      "description": "Daily productivity score and metric rollup",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "tasksCompleted": { "type": "number" },
+        "totalTasks": { "type": "number" },
+        "goalsCompleted": { "type": "number" },
+        "totalGoals": { "type": "number" },
+        "plannerItemsCompleted": { "type": "number" },
+        "totalPlannerItems": { "type": "number" },
+        "githubCommits": { "type": "number" },
+        "productivityScore": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "userId", "date"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Accountability partner connection between two users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requesterId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "requesterUsername": { "type": "string" },
+        "receiverUsername": { "type": "string" },
+        "requesterName": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "requesterAvatar": { "type": "string" },
+        "receiverAvatar": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["id", "requesterId", "receiverId", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Task items"
+    },
+    "/dailyPlans/{planId}": {
+      "schema": "DailyPlan",
+      "description": "Daily plans"
+    },
+    "/plannerItems/{itemId}": {
+      "schema": "PlannerItem",
+      "description": "Time-blocked schedule items"
+    },
+    "/weeklyGoals/{goalId}": {
+      "schema": "WeeklyGoal",
+      "description": "Weekly goals"
+    },
+    "/dailyActivity/{activityId}": {
+      "schema": "DailyActivity",
+      "description": "Aggregated daily activity scores"
+    },
+    "/friendships/{friendshipId}": {
+      "schema": "Friendship",
+      "description": "Friendships between users"
+    }
+  }
+}

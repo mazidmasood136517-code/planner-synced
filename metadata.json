@@ -1,0 +1,6 @@
+{
+  "name": "Two-Friend Productivity & Accountability",
+  "description": "A private full-stack productivity, daily planner, weekly accountability, and habit tracking web app for two friends.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
