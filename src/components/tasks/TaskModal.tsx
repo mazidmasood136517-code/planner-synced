@@ -83,10 +83,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           category,
           priority,
           dueDate,
-          dueTime: dueTime || undefined,
+          dueTime: dueTime || null,
           recurring,
-          recurrenceRule: recurring ? recurrenceRule : undefined,
-          estimatedMinutes: Number(estimatedMinutes) || undefined,
+          recurrenceRule: recurring ? recurrenceRule : null,
+          estimatedMinutes: Number(estimatedMinutes) || null,
         });
       } else {
         await onSave({
@@ -96,11 +96,11 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           category,
           priority,
           dueDate,
-          dueTime: dueTime || undefined,
+          dueTime: dueTime || null,
           completed: false,
           recurring,
-          recurrenceRule: recurring ? recurrenceRule : undefined,
-          estimatedMinutes: Number(estimatedMinutes) || undefined,
+          recurrenceRule: recurring ? recurrenceRule : null,
+          estimatedMinutes: Number(estimatedMinutes) || null,
         });
       }
       onClose();
