@@ -52,12 +52,12 @@ export interface Task {
   category: TaskCategory;
   priority: TaskPriority;
   dueDate: string; // YYYY-MM-DD
-  dueTime?: string; // HH:mm
+  dueTime?: string | null; // HH:mm
   completed: boolean;
   completedAt?: number;
   recurring: boolean;
   recurrenceRule?: RecurrenceRule;
-  estimatedMinutes?: number;
+  estimatedMinutes?: number | null;
   createdAt: number;
   updatedAt: number;
 }
