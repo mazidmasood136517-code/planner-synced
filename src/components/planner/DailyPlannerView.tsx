@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { PlannerItem, DailyPlan, TaskCategory } from '../../types';
+import { PlannerItem, DailyPlan, TaskCategory, Task, TaskPriority } from '../../types';
 import { TimeBlockModal } from './TimeBlockModal';
 import {
   Clock,
   Plus,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Calendar,
   Sparkles,
   CheckCircle2,
@@ -15,6 +17,7 @@ import {
   Flame,
   Save,
   Check,
+  ListTodo,
 } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 
@@ -22,6 +25,7 @@ interface DailyPlannerViewProps {
   userId: string;
   dailyPlan: DailyPlan | null;
   plannerItems: PlannerItem[];
+  tasks: Task[];
   currentDate: string;
   onDateChange: (date: string) => void;
   onSaveDailyPlan: (focus: string, notes?: string) => Promise<void>;
@@ -29,12 +33,23 @@ interface DailyPlannerViewProps {
   onUpdateItem: (itemId: string, updates: Partial<PlannerItem>) => Promise<void>;
   onDeleteItem: (itemId: string) => Promise<void>;
   onToggleItem: (item: PlannerItem) => Promise<void>;
+  onCreateTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  onToggleTask: (task: Task) => Promise<void>;
+  onDeleteTask: (taskId: string) => Promise<void>;
 }
+
+const PRIORITY_DOT: Record<TaskPriority, string> = {
+  Critical: 'bg-rose-400',
+  High: 'bg-orange-400',
+  Medium: 'bg-amber-400',
+  Low: 'bg-zinc-500',
+};
 
 export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
   userId,
   dailyPlan,
   plannerItems,
+  tasks,
   currentDate,
   onDateChange,
   onSaveDailyPlan,
@@ -42,6 +57,9 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
   onUpdateItem,
   onDeleteItem,
   onToggleItem,
+  onCreateTask,
+  onToggleTask,
+  onDeleteTask,
 }) => {
   const [focusText, setFocusText] = useState('');
   const [notesText, setNotesText] = useState('');
@@ -49,6 +67,10 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlannerItem | null>(null);
+  const [newTodoTitle, setNewTodoTitle] = useState('');
+  const [newTodoPriority, setNewTodoPriority] = useState<TaskPriority>('Medium');
+  const [isAddingTodo, setIsAddingTodo] = useState(false);
+  const [showTimeBlocks, setShowTimeBlocks] = useState(false);
 
   useEffect(() => {
     if (dailyPlan) {
@@ -77,6 +99,44 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
   const completedCount = plannerItems.filter((i) => i.completed).length;
   const totalCount = plannerItems.length;
   const adherencePct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  // Today's simple to-do list, derived from the shared tasks collection
+  const todayTasks = tasks
+    .filter((t) => t.dueDate === currentDate)
+    .sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      const order: Record<TaskPriority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+      return order[a.priority] - order[b.priority];
+    });
+  const todoCompletedCount = todayTasks.filter((t) => t.completed).length;
+  const todoTotalCount = todayTasks.length;
+
+  const handleQuickAddTodo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTodoTitle.trim()) return;
+    setIsAddingTodo(true);
+    try {
+      await onCreateTask({
+        userId,
+        title: newTodoTitle.trim(),
+        description: '',
+        category: 'Personal',
+        priority: newTodoPriority,
+        dueDate: currentDate,
+        dueTime: null,
+        completed: false,
+        recurring: false,
+        recurrenceRule: 'none',
+        estimatedMinutes: null,
+      });
+      setNewTodoTitle('');
+      setNewTodoPriority('Medium');
+    } catch (err) {
+      console.error('Error adding to-do:', err);
+    } finally {
+      setIsAddingTodo(false);
+    }
+  };
 
   const getCategoryColor = (cat: TaskCategory) => {
     switch (cat) {
@@ -169,6 +229,112 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
         </div>
       </div>
 
+      {/* Today's To-Do List (Primary) */}
+      <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <ListTodo className="w-4 h-4" />
+            </div>
+            <h3 className="text-sm font-bold text-zinc-100">Today's To-Do List</h3>
+          </div>
+          {todoTotalCount > 0 && (
+            <span className="text-xs font-mono text-zinc-400">
+              <strong className="text-emerald-400">{todoCompletedCount}</strong> / {todoTotalCount} done
+            </span>
+          )}
+        </div>
+
+        {/* Quick Add */}
+        <form onSubmit={handleQuickAddTodo} className="flex items-center gap-2 mb-4">
+          <input
+            type="text"
+            value={newTodoTitle}
+            onChange={(e) => setNewTodoTitle(e.target.value)}
+            placeholder="Add a task for today and press Enter..."
+            className="flex-1 px-3.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 focus:border-emerald-500 text-zinc-100 text-sm placeholder:text-zinc-600 outline-none"
+          />
+          <select
+            value={newTodoPriority}
+            onChange={(e) => setNewTodoPriority(e.target.value as TaskPriority)}
+            className="px-2.5 py-2.5 rounded-xl bg-zinc-950 border border-zinc-800 text-zinc-300 text-xs font-mono outline-none"
+            title="Priority"
+          >
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+          <button
+            type="submit"
+            disabled={isAddingTodo || !newTodoTitle.trim()}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/50 disabled:opacity-50 shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add</span>
+          </button>
+        </form>
+
+        {/* List */}
+        {todayTasks.length === 0 ? (
+          <div className="py-10 text-center rounded-xl bg-zinc-950/40 border border-zinc-800/60">
+            <p className="text-sm text-zinc-400">Nothing on your list for this day yet.</p>
+            <p className="text-xs text-zinc-500 mt-1">Add your first task above to get started.</p>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {todayTasks.map((task) => (
+              <div
+                key={task.id}
+                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl border transition-all group ${
+                  task.completed
+                    ? 'bg-zinc-950/30 border-zinc-800/40'
+                    : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                <button
+                  onClick={() => onToggleTask(task)}
+                  className={`shrink-0 transition-transform active:scale-90 ${
+                    task.completed ? 'text-emerald-400' : 'text-zinc-500 hover:text-emerald-400'
+                  }`}
+                >
+                  {task.completed ? (
+                    <CheckCircle2 className="w-5 h-5" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </button>
+
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${PRIORITY_DOT[task.priority]}`}
+                  title={task.priority}
+                />
+
+                <span
+                  className={`flex-1 min-w-0 text-sm truncate ${
+                    task.completed ? 'text-zinc-500 line-through' : 'text-zinc-100'
+                  }`}
+                >
+                  {task.title}
+                </span>
+
+                {task.dueTime && (
+                  <span className="text-xs text-zinc-500 font-mono shrink-0">{task.dueTime}</span>
+                )}
+
+                <button
+                  onClick={() => onDeleteTask(task.id)}
+                  className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-zinc-500 hover:text-rose-400 transition-all shrink-0"
+                  title="Delete task"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Daily Focus & Intentions Card */}
       <div className="rounded-2xl bg-zinc-900/90 border border-zinc-800 p-5 shadow-xl">
         <div className="flex items-center justify-between mb-3">
@@ -212,7 +378,26 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
         </form>
       </div>
 
-      {/* Schedule Adherence Header & Timeline */}
+      {/* Time Blocks (Secondary, collapsible) */}
+      <button
+        onClick={() => setShowTimeBlocks((v) => !v)}
+        className="w-full flex items-center justify-between rounded-2xl bg-zinc-900/60 border border-zinc-800/80 px-5 py-3.5 hover:bg-zinc-900 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 text-sm font-semibold text-zinc-300">
+          <Clock className="w-4 h-4 text-zinc-500" />
+          <span>Time Blocks</span>
+          <span className="text-xs text-zinc-500 font-mono">
+            ({plannerItems.length} blocks · {adherencePct}% adherence)
+          </span>
+        </div>
+        {showTimeBlocks ? (
+          <ChevronUp className="w-4 h-4 text-zinc-500" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-zinc-500" />
+        )}
+      </button>
+
+      {showTimeBlocks && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Columns: Time Blocks Sequence */}
         <div className="lg:col-span-2 space-y-4">
@@ -343,6 +528,7 @@ export const DailyPlannerView: React.FC<DailyPlannerViewProps> = ({
           </div>
         </div>
       </div>
+      )}
 
       {/* Time Block Modal */}
       <TimeBlockModal
