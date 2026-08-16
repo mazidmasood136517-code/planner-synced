@@ -32,7 +32,7 @@ import {
   TaskCategory,
   TaskPriority,
 } from '../types';
-import { format, startOfWeek, endOfWeek, subDays, addDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subDays, addDays, addWeeks, addMonths, isBefore, isWeekend, parseISO } from 'date-fns';
 import { calculateDailyProductivityScore, calculateStreak, calculateWeeklyGoalStats } from './productivity';
 
 // ================= USER PROFILES =================
@@ -512,6 +512,75 @@ export async function toggleTaskCompletion(taskOrId: Task | string): Promise<voi
     }
   } else {
     await toggleTaskCompleted(taskOrId.id, !taskOrId.completed, taskOrId.userId);
+  }
+}
+
+// ================= RECURRING TASK ROLLOVER =================
+
+/**
+ * Finds recurring tasks whose dueDate has passed and rolls them forward
+ * to the correct next occurrence, resetting completed to false.
+ * Safe to call every time the app loads - tasks that are already
+ * up to date are left untouched.
+ */
+export async function rolloverRecurringTasks(userId: string): Promise<void> {
+  try {
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const tasksRef = collection(db, 'tasks');
+    const q = query(tasksRef, where('userId', '==', userId), where('recurring', '==', true));
+    const snap = await getDocs(q);
+
+    const updates: Promise<void>[] = [];
+
+    snap.forEach((docSnap) => {
+      const task = docSnap.data() as Task;
+      if (!task.dueDate || task.dueDate >= todayStr) return; // already current or no date
+
+      let nextDate = parseISO(task.dueDate);
+      const today = parseISO(todayStr);
+
+      switch (task.recurrenceRule) {
+        case 'weekly':
+          while (isBefore(nextDate, today)) {
+            nextDate = addWeeks(nextDate, 1);
+          }
+          break;
+        case 'monthly':
+          while (isBefore(nextDate, today)) {
+            nextDate = addMonths(nextDate, 1);
+          }
+          break;
+        case 'weekdays': {
+          nextDate = today;
+          while (isWeekend(nextDate)) {
+            nextDate = addDays(nextDate, 1);
+          }
+          break;
+        }
+        case 'daily':
+        default:
+          nextDate = today;
+          break;
+      }
+
+      const newDueDate = format(nextDate, 'yyyy-MM-dd');
+      if (newDueDate !== task.dueDate) {
+        updates.push(
+          updateDoc(doc(db, 'tasks', docSnap.id), {
+            dueDate: newDueDate,
+            completed: false,
+            completedAt: null,
+            updatedAt: Date.now(),
+          })
+        );
+      }
+    });
+
+    if (updates.length > 0) {
+      await Promise.all(updates);
+    }
+  } catch (err) {
+    console.error('Error rolling over recurring tasks:', err);
   }
 }
 
