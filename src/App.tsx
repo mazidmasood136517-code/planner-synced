@@ -56,6 +56,7 @@ import {
   getFriendAccountabilityStats,
   updateUserProfile,
   recalculateAndSaveDailyActivity,
+  rolloverRecurringTasks,
 } from './services/db';
 import { calculateProductivityScore, calculateStreak } from './services/productivity';
 import { format, startOfWeek } from 'date-fns';
@@ -104,6 +105,12 @@ function AppContent() {
     } catch (err) {
       console.error('Error fetching friend stats:', err);
     }
+  }, [user]);
+
+  // Roll over recurring tasks (reset completed + advance dueDate) once per app load
+  useEffect(() => {
+    if (!user) return;
+    rolloverRecurringTasks(user.id);
   }, [user]);
 
   // Real-Time Subscriptions
@@ -410,6 +417,7 @@ function AppContent() {
               userId={user.id}
               dailyPlan={dailyPlan}
               plannerItems={plannerItems}
+              tasks={tasks}
               currentDate={selectedDate}
               onDateChange={setSelectedDate}
               onSaveDailyPlan={handleSaveDailyPlan}
@@ -417,6 +425,9 @@ function AppContent() {
               onUpdateItem={handleUpdatePlannerItem}
               onDeleteItem={handleDeletePlannerItem}
               onToggleItem={handleTogglePlannerItem}
+              onCreateTask={handleCreateTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
             />
           )}
 
@@ -498,3 +509,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+
