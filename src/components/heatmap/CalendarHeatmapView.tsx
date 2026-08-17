@@ -305,19 +305,36 @@ export const CalendarHeatmapView: React.FC<CalendarHeatmapViewProps> = ({
                 <p className="text-xs font-friendly text-[#64748B]">No quests recorded for this date.</p>
               </div>
             ) : (
-              selectedDayTasks.map((t) => (
+              [...selectedDayTasks]
+                .sort((a, b) => {
+                  if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                  return 0;
+                })
+                .map((t) => (
                 <div
                   key={t.id}
                   className="p-3 rounded-2xl bg-[#FFFDF8] border border-[#172033]/5 flex items-center justify-between gap-2 shadow-xs"
                 >
                   <div className="flex items-center gap-2 min-w-0">
+                    {t.completed ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399] shrink-0" />
+                    ) : (
+                      <span className="w-3.5 h-3.5 rounded-full border-2 border-[#CBD5E1] shrink-0" />
+                    )}
                     <span className={`text-xs font-friendly font-bold truncate ${t.completed ? 'text-[#94A3B8] line-through' : 'text-[#172033]'}`}>
                       {t.title}
                     </span>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#64748B] font-mono shrink-0">
-                    {t.category}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!t.completed && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5]/40">
+                        Pending
+                      </span>
+                    )}
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#64748B] font-mono">
+                      {t.category}
+                    </span>
+                  </div>
                 </div>
               ))
             )}
@@ -362,3 +379,4 @@ export const CalendarHeatmapView: React.FC<CalendarHeatmapViewProps> = ({
     </div>
   );
 };
+
