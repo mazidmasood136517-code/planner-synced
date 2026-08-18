@@ -16,6 +16,9 @@ interface TaskItemProps {
   onToggle: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (taskOrId: Task | string) => void;
+  /** Optional short label shown when a pending task was completed on a
+   * different date than it was assigned, e.g. "Completed Jun 12". */
+  completedDateNote?: string | null;
 }
 
 export const TaskItem: React.FC<TaskItemProps> = ({
@@ -23,6 +26,7 @@ export const TaskItem: React.FC<TaskItemProps> = ({
   onToggle,
   onEdit,
   onDelete,
+  completedDateNote,
 }) => {
   const getPriorityStyle = (p: Task['priority']) => {
     switch (p) {
@@ -138,6 +142,12 @@ export const TaskItem: React.FC<TaskItemProps> = ({
             {task.estimatedMinutes && (
               <span className="text-[10px] text-zinc-400 font-mono">
                 ~{task.estimatedMinutes}m
+              </span>
+            )}
+
+            {completedDateNote && (
+              <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold border text-amber-300 bg-amber-500/10 border-amber-500/30">
+                {completedDateNote}
               </span>
             )}
           </div>
