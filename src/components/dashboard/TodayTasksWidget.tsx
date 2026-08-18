@@ -59,7 +59,9 @@ export const TodayTasksWidget: React.FC<TodayTasksWidgetProps> = ({
     }
   };
 
-  // Group tasks by dueDate, chronological ascending (overdue -> today -> future)
+  // Group tasks by dueDate. Today comes first, then previous (overdue) days
+  // in descending order (most recent first), with any future-dated / no-date
+  // tasks pushed to the end.
   const groupedByDate = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach((t) => {
@@ -69,8 +71,27 @@ export const TodayTasksWidget: React.FC<TodayTasksWidgetProps> = ({
     });
 
     const sortedDates = Array.from(map.keys()).sort((a, b) => {
+      // Today always comes first
+      if (a === todayStr) return -1;
+      if (b === todayStr) return 1;
+
+      // 'No Date' tasks always come last
       if (a === 'No Date') return 1;
       if (b === 'No Date') return -1;
+
+      const aIsPast = a < todayStr;
+      const bIsPast = b < todayStr;
+
+      // Past (previous) days come before future days
+      if (aIsPast && !bIsPast) return -1;
+      if (!aIsPast && bIsPast) return 1;
+
+      if (aIsPast && bIsPast) {
+        // Previous days: most recent first (descending)
+        return b.localeCompare(a);
+      }
+
+      // Future days: soonest first (ascending)
       return a.localeCompare(b);
     });
 
