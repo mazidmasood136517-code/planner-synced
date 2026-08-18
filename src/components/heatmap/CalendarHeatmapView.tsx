@@ -150,6 +150,17 @@ export const CalendarHeatmapView: React.FC<CalendarHeatmapViewProps> = ({
   const selectedDayTasks = tasks.filter((t) => t.dueDate === selectedDay);
   const selectedDayScore = selectedDay === todayStr ? (liveTodayScore || selectedActivity?.productivityScore || 0) : (selectedActivity?.productivityScore ?? 0);
 
+  // Pending tasks (assigned on an earlier date) that were actually completed
+  // on the selected day. Shown in their own callout section below.
+  const pendingTasksCompletedOnSelectedDay = useMemo(() => {
+    return tasks.filter((t) => {
+      if (!t.completed || !t.completedAt) return false;
+      if (t.dueDate === selectedDay) return false; // not "pending", was due today anyway
+      const completedDateStr = format(new Date(t.completedAt), 'yyyy-MM-dd');
+      return completedDateStr === selectedDay;
+    });
+  }, [tasks, selectedDay]);
+
   // Overall Statistics
   const productiveDaysCount = allDays.filter((a) => a.score >= 25).length;
   const activeScores = allDays.map((a) => a.score).filter((s) => s > 0);
@@ -331,6 +342,11 @@ export const CalendarHeatmapView: React.FC<CalendarHeatmapViewProps> = ({
                         Pending
                       </span>
                     )}
+                    {t.completed && t.completedAt && format(new Date(t.completedAt), 'yyyy-MM-dd') !== t.dueDate && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-[#FEF9C3] text-[#856404] border border-[#FACC15]/40">
+                        Completed {format(new Date(t.completedAt), 'MMM d')}
+                      </span>
+                    )}
                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#64748B] font-mono">
                       {t.category}
                     </span>
@@ -375,6 +391,41 @@ export const CalendarHeatmapView: React.FC<CalendarHeatmapViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Pending Tasks Completed On This Day */}
+        {pendingTasksCompletedOnSelectedDay.length > 0 && (
+          <div className="mt-6 pt-5 border-t border-[#172033]/5">
+            <h4 className="text-xs font-friendly font-bold uppercase tracking-wider text-[#856404] flex items-center gap-2 mb-3">
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>
+                Pending Tasks Completed {selectedDay === todayStr ? 'Today' : 'On This Day'} ({pendingTasksCompletedOnSelectedDay.length})
+              </span>
+            </h4>
+            <div className="space-y-2">
+              {pendingTasksCompletedOnSelectedDay.map((t) => (
+                <div
+                  key={t.id}
+                  className="p-3 rounded-2xl bg-[#FEF9C3]/50 border border-[#FACC15]/30 flex items-center justify-between gap-2 shadow-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#34D399] shrink-0" />
+                    <span className="text-xs font-friendly font-bold text-[#172033] truncate">
+                      {t.title}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5]/40">
+                      Assigned {format(parseISO(t.dueDate), 'MMM d')}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#F1F5F9] text-[#64748B] font-mono">
+                      {t.category}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
