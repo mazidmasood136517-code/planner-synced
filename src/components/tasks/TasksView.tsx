@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Task, TaskCategory, TaskPriority } from '../../types';
 import { TaskItem } from './TaskItem';
 import { TaskModal } from './TaskModal';
+import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import {
   CheckSquare,
   Plus,
@@ -12,6 +13,9 @@ import {
   CheckCircle2,
   Circle,
   Sparkles,
+  ChevronDown,
+  ChevronRight,
+  CalendarDays,
 } from 'lucide-react';
 
 interface TasksViewProps {
@@ -50,6 +54,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'newest'>('dueDate');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [openDoneDates, setOpenDoneDates] = useState<Set<string>>(new Set());
 
   const priorityOrder: Record<TaskPriority, number> = {
     Critical: 4,
@@ -58,41 +63,126 @@ export const TasksView: React.FC<TasksViewProps> = ({
     Low: 1,
   };
 
-  // Filter & Sort
-  const filteredTasks = useMemo(() => {
-    return tasks
-      .filter((t) => {
-        // Category filter
-        if (selectedCategory !== 'All' && t.category !== selectedCategory) return false;
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
-        // Status filter
-        if (statusFilter === 'pending' && t.completed) return false;
-        if (statusFilter === 'completed' && !t.completed) return false;
+  const sortTasks = (list: Task[]) => {
+    return [...list].sort((a, b) => {
+      if (sortBy === 'priority') {
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+      }
+      if (sortBy === 'newest') {
+        return b.createdAt - a.createdAt;
+      }
+      // default: due date
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+  };
 
-        // Priority filter
-        if (priorityFilter !== 'All' && t.priority !== priorityFilter) return false;
+  const formatDateHeading = (dateStr: string) => {
+    if (dateStr === 'No Date') return 'No Due Date';
+    try {
+      const d = parseISO(dateStr);
+      if (isToday(d)) return 'Today';
+      if (isYesterday(d)) return 'Yesterday';
+      return format(d, 'EEE, MMM d, yyyy');
+    } catch {
+      return dateStr;
+    }
+  };
 
-        // Search query
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchesTitle = t.title.toLowerCase().includes(q);
-          const matchesDesc = t.description?.toLowerCase().includes(q);
-          if (!matchesTitle && !matchesDesc) return false;
-        }
+  // Category + priority + search filters, applied before splitting into
+  // the "active" (dated) view and the "Done" archive.
+  const baseFilteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (selectedCategory !== 'All' && t.category !== selectedCategory) return false;
+      if (priorityFilter !== 'All' && t.priority !== priorityFilter) return false;
 
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === 'priority') {
-          return priorityOrder[b.priority] - priorityOrder[a.priority];
-        }
-        if (sortBy === 'newest') {
-          return b.createdAt - a.createdAt;
-        }
-        // default: due date
-        return a.dueDate.localeCompare(b.dueDate);
-      });
-  }, [tasks, selectedCategory, statusFilter, priorityFilter, searchQuery, sortBy]);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = t.title.toLowerCase().includes(q);
+        const matchesDesc = t.description?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesDesc) return false;
+      }
+
+      return true;
+    });
+  }, [tasks, selectedCategory, priorityFilter, searchQuery]);
+
+  // Tasks shown under dated headings in the main list. Completed tasks only
+  // stay here on the day they were due (today) - once the day passes they
+  // move to the Done archive below. In the "Pending" tab, completed tasks
+  // are hidden entirely.
+  const activeTasks = useMemo(() => {
+    return baseFilteredTasks.filter((t) => {
+      if (statusFilter === 'completed') return false;
+      if (statusFilter === 'pending') return !t.completed;
+      return !t.completed || t.dueDate === todayStr;
+    });
+  }, [baseFilteredTasks, statusFilter, todayStr]);
+
+  // Tasks shown in the Done archive. In the "Done" tab this includes every
+  // completed task (including today's); otherwise today's completed tasks
+  // stay in the active list above until the day rolls over.
+  const doneTasks = useMemo(() => {
+    return baseFilteredTasks.filter((t) => {
+      if (statusFilter === 'pending') return false;
+      if (!t.completed) return false;
+      if (statusFilter === 'completed') return true;
+      return t.dueDate !== todayStr;
+    });
+  }, [baseFilteredTasks, statusFilter, todayStr]);
+
+  const groupByDate = (list: Task[]) => {
+    const map = new Map<string, Task[]>();
+    list.forEach((t) => {
+      const key = t.dueDate || 'No Date';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    });
+    return map;
+  };
+
+  // Active list: dated headings in ascending order (overdue -> today -> future)
+  const groupedActive = useMemo(() => {
+    const map = groupByDate(activeTasks);
+    const dates = Array.from(map.keys()).sort((a, b) => {
+      if (a === 'No Date') return 1;
+      if (b === 'No Date') return -1;
+      return a.localeCompare(b);
+    });
+    return dates.map((date) => ({ date, tasks: sortTasks(map.get(date)!) }));
+  }, [activeTasks, sortBy]);
+
+  // Done archive: most recently assigned date first, each date collapsible
+  const groupedDone = useMemo(() => {
+    const map = groupByDate(doneTasks);
+    const dates = Array.from(map.keys()).sort((a, b) => {
+      if (a === 'No Date') return 1;
+      if (b === 'No Date') return -1;
+      return b.localeCompare(a);
+    });
+    return dates.map((date) => ({ date, tasks: sortTasks(map.get(date)!) }));
+  }, [doneTasks, sortBy]);
+
+  const toggleDoneDate = (date: string) => {
+    setOpenDoneDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const getCompletedDateNote = (task: Task): string | null => {
+    if (!task.completed || !task.completedAt) return null;
+    const completedDateStr = format(new Date(task.completedAt), 'yyyy-MM-dd');
+    if (completedDateStr === task.dueDate) return null;
+    return `Completed ${format(new Date(task.completedAt), 'MMM d')}`;
+  };
+
+  const showActiveSection = statusFilter !== 'completed';
+  const showDoneSection = statusFilter !== 'pending';
+  const hasAnyResults = groupedActive.length > 0 || groupedDone.length > 0;
 
   const completedCount = tasks.filter((t) => t.completed).length;
   const totalCount = tasks.length;
@@ -245,8 +335,8 @@ export const TasksView: React.FC<TasksViewProps> = ({
       </div>
 
       {/* Task List Items */}
-      <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
+      <div className="space-y-6">
+        {!hasAnyResults ? (
           <div className="py-16 text-center rounded-2xl bg-zinc-900/50 border border-zinc-800/60 p-8">
             <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 flex items-center justify-center mx-auto mb-3 text-zinc-500">
               <CheckSquare className="w-6 h-6" />
@@ -267,18 +357,109 @@ export const TasksView: React.FC<TasksViewProps> = ({
             </button>
           </div>
         ) : (
-          filteredTasks.map((task) => (
-            <TaskItem
-              key={task.id}
-              task={task}
-              onToggle={onToggleTask}
-              onEdit={(t) => {
-                setEditingTask(t);
-                setIsModalOpen(true);
-              }}
-              onDelete={onDeleteTask}
-            />
-          ))
+          <>
+            {/* Active tasks under dated headings */}
+            {showActiveSection && groupedActive.length > 0 && (
+              <div className="space-y-5">
+                {groupedActive.map(({ date, tasks: dateTasks }) => {
+                  const isOverdue = date !== 'No Date' && date < todayStr;
+                  return (
+                    <div key={date}>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <CalendarDays className="w-3.5 h-3.5 text-zinc-500" />
+                        <h4 className="text-xs font-bold uppercase tracking-wide text-zinc-300">
+                          {formatDateHeading(date)}
+                        </h4>
+                        {isOverdue && (
+                          <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                            Overdue
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono text-zinc-500 ml-auto">
+                          {dateTasks.filter((t) => t.completed).length}/{dateTasks.length}
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {dateTasks.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            onToggle={onToggleTask}
+                            onEdit={(t) => {
+                              setEditingTask(t);
+                              setIsModalOpen(true);
+                            }}
+                            onDelete={onDeleteTask}
+                            completedDateNote={getCompletedDateNote(task)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Done archive, grouped datewise with a dropdown per date */}
+            {showDoneSection && groupedDone.length > 0 && (
+              <div className="pt-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-sm font-bold text-zinc-200">Done</h3>
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    ({doneTasks.length} completed)
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {groupedDone.map(({ date, tasks: dateTasks }) => {
+                    const isOpen = openDoneDates.has(date);
+                    return (
+                      <div
+                        key={date}
+                        className="rounded-2xl bg-zinc-900/50 border border-zinc-800/60 overflow-hidden"
+                      >
+                        <button
+                          onClick={() => toggleDoneDate(date)}
+                          className="w-full flex items-center gap-2 px-4 py-3 hover:bg-zinc-900 transition-colors cursor-pointer"
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+                          )}
+                          <span className="text-xs font-bold text-zinc-300">
+                            {formatDateHeading(date)}
+                          </span>
+                          <span className="text-[10px] font-mono text-zinc-500 ml-auto">
+                            {dateTasks.length} task{dateTasks.length === 1 ? '' : 's'}
+                          </span>
+                        </button>
+
+                        {isOpen && (
+                          <div className="px-4 pb-4 space-y-3">
+                            {dateTasks.map((task) => (
+                              <TaskItem
+                                key={task.id}
+                                task={task}
+                                onToggle={onToggleTask}
+                                onEdit={(t) => {
+                                  setEditingTask(t);
+                                  setIsModalOpen(true);
+                                }}
+                                onDelete={onDeleteTask}
+                                completedDateNote={getCompletedDateNote(task)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
